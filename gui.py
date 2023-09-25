@@ -1,12 +1,3 @@
-from PyQt5.QtWidgets import QWidget, QApplication
-
-application = QApplication([])
-
-mainWindow = QWidget()
-
-mainWindow.setGeometry(0, 0, 1200, 700)
-mainWindow.setWindowTitle('Contacts')
-
-mainWindow.show()
-
-application.exec()
+import sys
+import sqlite3
+from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget, QPushButton, QVBoxLayout, QWidget, QDialog, QLabel, QLineEdit
