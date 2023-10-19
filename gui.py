@@ -2,26 +2,32 @@ import sys
 import sqlite3
 from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget, QPushButton, QVBoxLayout, QWidget, QDialog, QLabel, QLineEdit, QMessageBox
 
-# Create or connect to the database
+# Crée ou connete la db existante 
 conn = sqlite3.connect('contacts.db')
 cursor = conn.cursor()
 
+# Class principale
 class ContactApp(QMainWindow):
     def __init__(self):
         super().__init__()
-
+        
+        # Met le titre de l'application
         self.setWindowTitle("Contact App")
+        # Met la dimension par défaut
         self.setGeometry(100, 100, 400, 300)
-
+        
+        # Création du widget qui contiendra le layout principal
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
-
+        
+        # Création du layout principal dans le widget
         self.layout = QVBoxLayout()
         self.central_widget.setLayout(self.layout)
-
+        
+        # Création de la liste dans le layout principal du widget
         self.contact_list = QListWidget()
         self.layout.addWidget(self.contact_list)
-
+    
         self.view_button = QPushButton("View Contact")
         self.add_button = QPushButton("Add Contact")
         self.delete_button = QPushButton("Delete Contact")
@@ -79,48 +85,49 @@ class ContactApp(QMainWindow):
             self.load_contacts()
 
     def delete_contact(self):
-        selected_contact = self.contact_list.currentItem()
-        if selected_contact:
-            confirmation = QMessageBox.question(
-                self, "Confirm Deletion", "Are you sure you want to delete this contact?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
+      selected_contact = self.contact_list.currentItem()
+      if selected_contact:
+          confirmation = QMessageBox.question(
+              self, "Confirm Deletion", "Are you sure you want to delete this contact?",
+              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+          )
 
-            if confirmation == QMessageBox.StandardButton.Yes:
-                contact_name = selected_contact.text()
-                contact_nom = contact_name.split(" ")[0]
-                contact_prenom = contact_name.split(" ")[1]
+          if confirmation == QMessageBox.StandardButton.Yes:
+              contact_name = selected_contact.text()
+              contact_nom = contact_name.split(" ")[0]
+              contact_prenom = contact_name.split(" ")[1]
 
-                cursor.execute('''
-                    DELETE FROM link_contact_tel WHERE nom = ? AND prenom = ?
-                ''', (contact_nom, contact_prenom))
-                
-                cursor.execute('''
-                    DELETE FROM link_contact_adresse WHERE nom = ? AND prenom = ?
-                ''', (contact_nom, contact_prenom))
+              cursor.execute('''
+                DELETE FROM link_contact_tel WHERE nom = ? AND prenom = ?
+              ''', (contact_nom, contact_prenom))
+            
+              cursor.execute('''
+                DELETE FROM link_contact_adresse WHERE nom = ? AND prenom = ?
+              ''', (contact_nom, contact_prenom))
 
-                cursor.execute('''
-                    DELETE FROM tel WHERE id IN (
-                        SELECT t.id FROM contact c
-                        LEFT JOIN link_contact_tel t ON c.nom = t.nom AND c.prenom = t.prenom
-                        WHERE c.nom = ? AND c.prenom = ?
-                    )
-                ''', (contact_nom, contact_prenom))
-                
-                cursor.execute('''
-                    DELETE FROM adresse WHERE id IN (
-                        SELECT a.id FROM contact c
+              cursor.execute('''
+                DELETE FROM tel WHERE tel IN (
+                    SELECT tel.tel FROM tel
+                    JOIN link_contact_tel l
+                             ON tel.id = 
+                    WHERE l.nom = ? AND l.prenom = ?
+                )
+              ''', (contact_nom, contact_prenom))
+            
+              cursor.execute('''
+                    DELETE FROM adresse WHERE adresse IN (
+                        SELECT a.adresse FROM contact c
                         LEFT JOIN link_contact_adresse a ON c.nom = a.nom AND c.prenom = a.prenom
                         WHERE c.nom = ? AND c.prenom = ?
-                    )
-                ''', (contact_nom, contact_prenom))
+                )
+              ''', (contact_nom, contact_prenom))
 
-                cursor.execute('''
-                    DELETE FROM contact WHERE nom = ? AND prenom = ?
-                ''', (contact_nom, contact_prenom))
+              cursor.execute('''
+                DELETE FROM contact WHERE nom = ? AND prenom = ?
+              ''', (contact_nom, contact_prenom))
 
-                conn.commit()
-                self.contact_list.takeItem(self.contact_list.currentRow())
+              conn.commit()
+              self.contact_list.takeItem(self.contact_list.currentRow())
 
 
 class ContactDetails(QDialog):
@@ -181,12 +188,12 @@ class AddContactDialog(QDialog):
         tel = self.tel_input.text()
         adresse = self.adresse_input.text()
 
-        cursor.execute('''
-            INSERT INTO contact (nom, prenom) VALUES (?, ?)
-        ''', (nom, prenom))
-
         cursor.execute('SELECT last_insert_rowid()')  # Get the last inserted contact ID
         contact_id = cursor.fetchone()[0]
+
+        cursor.execute('''
+            INSERT INTO contact (nom, prenom, id) VALUES (?, ?, ?)
+        ''', (nom, prenom, contact_id))
 
         if tel:
             cursor.execute('INSERT INTO link_contact_tel (id, nom, prenom, tel) VALUES (?, ?, ?, ?)', (contact_id, nom, prenom, tel))
