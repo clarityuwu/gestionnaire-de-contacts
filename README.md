@@ -8,14 +8,14 @@ Projet Scolaire De Gestion de contact
 
 ## Features
 
-- Création de contact les gérers modifier supprimer etc..
+- Création de contact les gérers supprimer etc..
 - Gui user-friendly
 
 ## Todo
 
-- [ ] Base de données SQL
-- [ ] Script python qui modifie la bdd sur demande
-- [ ] Crée un gui avec pyqt6
+- [✅] Base de données SQL
+- [✅] Script python qui modifie la bdd sur demande
+- [✅] Crée un gui avec pyqt6
 
 # Installing
 
