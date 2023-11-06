@@ -2,32 +2,51 @@ import sys
 import sqlite3
 from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget, QPushButton, QVBoxLayout, QWidget, QDialog, QLabel, QLineEdit, QMessageBox
 
-# Crée ou connete la db existante 
+# Create or connect to the database
 conn = sqlite3.connect('contacts.db')
 cursor = conn.cursor()
 
-# Class principale
+# Define the schema with an auto-incrementing primary key for the contact table
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS contact (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nom TEXT,
+        prenom TEXT
+    )
+''')
+
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS tel (
+        id INTEGER,
+        tel TEXT,
+        FOREIGN KEY (id) REFERENCES contact(id)
+    )
+''')
+
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS adresse (
+        id INTEGER,
+        adresse TEXT,
+        FOREIGN KEY (id) REFERENCES contact(id)
+    )
+''')
+
 class ContactApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        
-        # Met le titre de l'application
+
         self.setWindowTitle("Contact App")
-        # Met la dimension par défaut
         self.setGeometry(100, 100, 400, 300)
-        
-        # Création du widget qui contiendra le layout principal
+
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
-        
-        # Création du layout principal dans le widget
+
         self.layout = QVBoxLayout()
         self.central_widget.setLayout(self.layout)
-        
-        # Création de la liste dans le layout principal du widget
+
         self.contact_list = QListWidget()
         self.layout.addWidget(self.contact_list)
-    
+
         self.view_button = QPushButton("View Contact")
         self.add_button = QPushButton("Add Contact")
         self.delete_button = QPushButton("Delete Contact")
@@ -45,10 +64,7 @@ class ContactApp(QMainWindow):
         self.delete_button.clicked.connect(self.delete_contact)
 
     def load_contacts(self):
-        cursor.execute('''
-            SELECT c.id, c.nom, c.prenom
-            FROM contact c
-        ''')
+        cursor.execute('''SELECT id, nom, prenom FROM contact''')
         contacts = cursor.fetchall()
         for contact in contacts:
             id, nom, prenom = contact
@@ -59,22 +75,19 @@ class ContactApp(QMainWindow):
         selected_contact = self.contact_list.currentItem()
         if selected_contact:
             contact_name = selected_contact.text()
-        
+            nom, prenom = contact_name.split(' ')
             cursor.execute('''
                 SELECT c.nom, c.prenom, t.tel, a.adresse
                 FROM contact c
-                LEFT JOIN link_contact_tel t ON c.nom = t.nom AND c.prenom = t.prenom
-                LEFT JOIN link_contact_adresse a ON c.nom = a.nom AND c.prenom = a.prenom
-                WHERE c.nom || ' ' || c.prenom = ?
-            ''', (contact_name,))
-        
+                LEFT JOIN tel t ON c.id = t.id
+                LEFT JOIN adresse a ON c.id = a.id
+                WHERE c.nom = ? AND c.prenom = ?
+            ''', (nom, prenom))
             contact_data = cursor.fetchone()
-
             if contact_data:
                 nom, prenom, tel, address = contact_data
                 details_dialog = ContactDetails(nom, prenom, tel, address)
                 details_dialog.exec()
-
 
     def add_contact(self):
         dialog = AddContactDialog()
@@ -85,50 +98,24 @@ class ContactApp(QMainWindow):
             self.load_contacts()
 
     def delete_contact(self):
-      selected_contact = self.contact_list.currentItem()
-      if selected_contact:
-          confirmation = QMessageBox.question(
-              self, "Confirm Deletion", "Are you sure you want to delete this contact?",
-              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-          )
+        selected_contact = self.contact_list.currentItem()
+        if selected_contact:
+            confirmation = QMessageBox.question(
+                self, "Confirm Deletion", "Are you sure you want to delete this contact?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            if confirmation == QMessageBox.StandardButton.Yes:
+                contact_name = selected_contact.text()
+                nom, prenom = contact_name.split(' ')
+                cursor.execute('SELECT id FROM contact WHERE nom = ? AND prenom = ?', (nom, prenom))
+                id = cursor.fetchone()[0]
+                cursor.execute('DELETE FROM contact WHERE id = ?', (id,))
+                cursor.execute('DELETE FROM tel WHERE id = ?', (id,))
+                cursor.execute('DELETE FROM adresse WHERE id = ?', (id,))
+                conn.commit()
+                self.contact_list.takeItem(self.contact_list.currentRow())
 
-          if confirmation == QMessageBox.StandardButton.Yes:
-              contact_name = selected_contact.text()
-              contact_nom = contact_name.split(" ")[0]
-              contact_prenom = contact_name.split(" ")[1]
-
-              cursor.execute('''
-                DELETE FROM link_contact_tel WHERE nom = ? AND prenom = ?
-              ''', (contact_nom, contact_prenom))
-            
-              cursor.execute('''
-                DELETE FROM link_contact_adresse WHERE nom = ? AND prenom = ?
-              ''', (contact_nom, contact_prenom))
-
-              cursor.execute('''
-                DELETE FROM tel WHERE tel IN (
-                    SELECT tel.tel FROM tel
-                    JOIN link_contact_tel l
-                             ON tel.id = 
-                    WHERE l.nom = ? AND l.prenom = ?
-                )
-              ''', (contact_nom, contact_prenom))
-            
-              cursor.execute('''
-                    DELETE FROM adresse WHERE adresse IN (
-                        SELECT a.adresse FROM contact c
-                        LEFT JOIN link_contact_adresse a ON c.nom = a.nom AND c.prenom = a.prenom
-                        WHERE c.nom = ? AND c.prenom = ?
-                )
-              ''', (contact_nom, contact_prenom))
-
-              cursor.execute('''
-                DELETE FROM contact WHERE nom = ? AND prenom = ?
-              ''', (contact_nom, contact_prenom))
-
-              conn.commit()
-              self.contact_list.takeItem(self.contact_list.currentRow())
-
+                self.contact_list.takeItem(self.contact_list.currentRow())
 
 class ContactDetails(QDialog):
     def __init__(self, nom, prenom, tel, adresse):
@@ -143,7 +130,7 @@ class ContactDetails(QDialog):
         self.nom_label = QLabel(f"Nom: {nom}")
         self.prenom_label = QLabel(f"Prenom: {prenom}")
         self.tel_label = QLabel(f"Tel: {tel}" if tel else "Tel: N/A")
-        self.adresse_label = QLabel(f"adresse: {adresse}" if adresse else "adresse: N/A")
+        self.adresse_label = QLabel(f"Adresse: {adresse}" if adresse else "Adresse: N/A")
 
         self.layout.addWidget(self.nom_label)
         self.layout.addWidget(self.prenom_label)
@@ -155,7 +142,7 @@ class AddContactDialog(QDialog):
         super().__init__()
 
         self.setWindowTitle("Add Contact")
-        self.setGeometry(200, 200, 300, 150)
+        self.setGeometry(200, 200, 300, 150) # ouvre une nouvelle fenetre
 
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
@@ -163,23 +150,23 @@ class AddContactDialog(QDialog):
         self.form_layout = QVBoxLayout()
 
         self.nom_input = QLineEdit()
-        self.prenom_input = QLineEdit()
+        self.prenom_input = QLineEdit() # permet de creer un champ de texte
         self.tel_input = QLineEdit()
         self.adresse_input = QLineEdit()
 
-        self.form_layout.addWidget(QLabel("Nom:"))
+        self.form_layout.addWidget(QLabel("Nom:")) # permet de creer un label
         self.form_layout.addWidget(self.nom_input)
-        self.form_layout.addWidget(QLabel("Prenom:"))
+        self.form_layout.addWidget(QLabel("Prenom:")) 
         self.form_layout.addWidget(self.prenom_input)
         self.form_layout.addWidget(QLabel("Tel:"))
         self.form_layout.addWidget(self.tel_input)
-        self.form_layout.addWidget(QLabel("adresse:"))
+        self.form_layout.addWidget(QLabel("Adresse:"))
         self.form_layout.addWidget(self.adresse_input)
 
-        self.add_button = QPushButton("Add Contact")
+        self.add_button = QPushButton("Add Contact") # permet de creer un bouton
         self.add_button.clicked.connect(self.add_contact)
 
-        self.layout.addLayout(self.form_layout)
+        self.layout.addLayout(self.form_layout) 
         self.layout.addWidget(self.add_button)
 
     def add_contact(self):
@@ -187,22 +174,14 @@ class AddContactDialog(QDialog):
         prenom = self.prenom_input.text()
         tel = self.tel_input.text()
         adresse = self.adresse_input.text()
-
-        cursor.execute('SELECT last_insert_rowid()')  # Get the last inserted contact ID
-        contact_id = cursor.fetchone()[0]
-
-        cursor.execute('''
-            INSERT INTO contact (nom, prenom, id) VALUES (?, ?, ?)
-        ''', (nom, prenom, contact_id))
-
+        cursor.execute('SELECT MAX(id) FROM contact')
+        max_id = cursor.fetchone()[0]
+        new_id = max_id + 1 if max_id else 1
+        cursor.execute('INSERT INTO contact (id, nom, prenom) VALUES (?, ?, ?)', (new_id, nom, prenom))
         if tel:
-            cursor.execute('INSERT INTO link_contact_tel (id, nom, prenom, tel) VALUES (?, ?, ?, ?)', (contact_id, nom, prenom, tel))
-            cursor.execute('INSERT INTO tel (tel, id) VALUES (?, ?)', (tel, contact_id))
-
+            cursor.execute('INSERT INTO tel (tel, id) VALUES (?, ?)', (tel, new_id))
         if adresse:
-            cursor.execute('INSERT INTO link_contact_adresse (id, nom, prenom, adresse) VALUES (?, ?, ?, ?)', (contact_id, nom, prenom, adresse))
-            cursor.execute('INSERT INTO adresse (adresse, id) VALUES (?, ?)', (adresse, contact_id))
-
+            cursor.execute('INSERT INTO adresse (adresse, id) VALUES (?, ?)', (adresse, new_id))
         conn.commit()
         self.accept()
 
