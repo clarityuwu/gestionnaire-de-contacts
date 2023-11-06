@@ -32,6 +32,9 @@ cursor.execute('''
 ''')
 
 class ContactApp(QMainWindow):
+    """
+    Class principale de l'application 
+    """
     def __init__(self):
         super().__init__()
 
@@ -64,6 +67,9 @@ class ContactApp(QMainWindow):
         self.delete_button.clicked.connect(self.delete_contact)
 
     def load_contacts(self):
+        """
+        Fonction qui sert a charger les nom prénom d'un contact
+        """
         cursor.execute('''SELECT id, nom, prenom FROM contact''')
         contacts = cursor.fetchall()
         for contact in contacts:
@@ -72,6 +78,9 @@ class ContactApp(QMainWindow):
             self.contact_list.addItem(contact_item)
 
     def view_contact(self):
+        """
+        Fonction qui sert a avoir les informations du contact sélectionné 
+        """
         selected_contact = self.contact_list.currentItem()
         if selected_contact:
             contact_name = selected_contact.text()
@@ -90,6 +99,9 @@ class ContactApp(QMainWindow):
                 details_dialog.exec()
 
     def add_contact(self):
+        """
+        Fonction qui quand un contact est ajouté est exécuter pour rafraichir la liste des contacts et la rajoute dans la liste
+        """
         dialog = AddContactDialog()
         result = dialog.exec()
         if result == QDialog.DialogCode.Accepted:
@@ -98,6 +110,9 @@ class ContactApp(QMainWindow):
             self.load_contacts()
 
     def delete_contact(self):
+        """
+        Demande la confirmation de l'utilisateur et si confirmé alors supprime le contact de la bdd
+        """
         selected_contact = self.contact_list.currentItem()
         if selected_contact:
             confirmation = QMessageBox.question(
@@ -118,6 +133,9 @@ class ContactApp(QMainWindow):
                 self.contact_list.takeItem(self.contact_list.currentRow())
 
 class ContactDetails(QDialog):
+    """
+    Ouvre une fenetre avec les informations du contact
+    """
     def __init__(self, nom, prenom, tel, adresse):
         super().__init__()
 
@@ -138,6 +156,9 @@ class ContactDetails(QDialog):
         self.layout.addWidget(self.adresse_label)
 
 class AddContactDialog(QDialog):
+    """
+    Ouvre une fenetre avec les informations nécessaire pour l'enregistrement d'un contact
+    """
     def __init__(self):
         super().__init__()
 
@@ -168,6 +189,31 @@ class AddContactDialog(QDialog):
 
         self.layout.addLayout(self.form_layout) 
         self.layout.addWidget(self.add_button)
+
+    def add_contact(self):
+        """
+        prend les données que l' utilisateur a donnée et les enregistre dans la base de donnée
+        """
+        nom = self.nom_input.text()
+        prenom = self.prenom_input.text()
+        tel = self.tel_input.text()
+        adresse = self.adresse_input.text()
+        cursor.execute('SELECT MAX(id) FROM contact')
+        max_id = cursor.fetchone()[0]
+        new_id = max_id + 1 if max_id else 1
+        cursor.execute('INSERT INTO contact (id, nom, prenom) VALUES (?, ?, ?)', (new_id, nom, prenom))
+        if tel:
+            cursor.execute('INSERT INTO tel (tel, id) VALUES (?, ?)', (tel, new_id))
+        if adresse:
+            cursor.execute('INSERT INTO adresse (adresse, id) VALUES (?, ?)', (adresse, new_id))
+        conn.commit()
+        self.accept()
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    window = ContactApp()
+    window.show()
+    sys.exit(app.exec())
 
     def add_contact(self):
         nom = self.nom_input.text()
