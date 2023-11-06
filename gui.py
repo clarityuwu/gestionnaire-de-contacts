@@ -214,25 +214,3 @@ if __name__ == '__main__':
     window = ContactApp()
     window.show()
     sys.exit(app.exec())
-
-    def add_contact(self):
-        nom = self.nom_input.text()
-        prenom = self.prenom_input.text()
-        tel = self.tel_input.text()
-        adresse = self.adresse_input.text()
-        cursor.execute('SELECT MAX(id) FROM contact')
-        max_id = cursor.fetchone()[0]
-        new_id = max_id + 1 if max_id else 1
-        cursor.execute('INSERT INTO contact (id, nom, prenom) VALUES (?, ?, ?)', (new_id, nom, prenom))
-        if tel:
-            cursor.execute('INSERT INTO tel (tel, id) VALUES (?, ?)', (tel, new_id))
-        if adresse:
-            cursor.execute('INSERT INTO adresse (adresse, id) VALUES (?, ?)', (adresse, new_id))
-        conn.commit()
-        self.accept()
-
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    window = ContactApp()
-    window.show()
-    sys.exit(app.exec())
