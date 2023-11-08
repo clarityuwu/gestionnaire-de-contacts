@@ -13,9 +13,9 @@ Projet Scolaire De Gestion de contact
 
 ## Todo
 
-- [ ] Base de données SQL
-- [ ] Script python qui modifie la bdd sur demande
-- [ ] Crée un gui avec pyqt6
+- [✅] Base de données SQL
+- [✅] Script python qui modifie la bdd sur demande
+- [✅] Crée un gui avec pyqt6
 
 # Installing
 
